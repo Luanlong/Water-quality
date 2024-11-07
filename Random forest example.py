@@ -5,8 +5,68 @@ from sklearn.ensemble import RandomForestRegressor
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import pickle
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
-# 定义名称变量
+
+
+
+
+"""=======================================RF model==============================================="""
+name = ["DOC"] # ["pH", "DO", "PI", "TN", "TP", "Cond", "Tur", "DOC"]
+
+        
+excel_file_path = '_X_Y_input_DOC.xlsx' 
+dataset = pd.read_excel(excel_file_path)
+
+excel_file_path_2 = 'X_combined/{}.xlsx'.format(name)
+dataset_2 = pd.read_excel(excel_file_path_2)
+
+x_columns = dataset_2.columns.tolist()
+
+rf_model = RandomForestRegressor()
+
+results = []
+
+for seed in tqdm(range(1, 101), desc=f'Training and Evaluation Progress - {name} '):
+    X = dataset.loc[:, x_columns]
+
+    y = dataset.iloc[:, dataset.columns.get_loc(name)]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=seed)
+
+    rf_model.fit(X_train, y_train)
+
+    model_output_path = f"/models/model_{name}_seed{seed}.pkl"
+    with open(model_output_path, 'wb') as f:
+        pickle.dump(rf_model, f)
+
+    y_pred = rf_model.predict(X_test)
+
+    r2 = r2_score(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    mae = mean_absolute_error(y_test, y_pred)
+
+    result = {
+        'Random State': seed,
+        'R2 Score': r2,
+        'RMSE': rmse,
+        'MAE': mae
+    }
+    results.append(result)
+
+result_df = pd.DataFrame(results)
+
+result_df['X_Variables'] = ', '.join(x_columns)
+
+output_dir = 'Evaluation'
+os.makedirs(output_dir, exist_ok=True)
+
+excel_output_path = os.path.join(output_dir, f"evaluation_results_{name}.xlsx")
+with pd.ExcelWriter(excel_output_path, engine='openpyxl') as writer:
+    result_df.to_excel(writer, sheet_name='Evaluation Results', index=False)
+
+"""=============================Use RF model========================================="""
+
 names = ["pH", "DO", "PI", "TN", "TP", "Cond", "Tur", "DOC"]
 # names = ["DOC"]
 # months = ["1"]   
